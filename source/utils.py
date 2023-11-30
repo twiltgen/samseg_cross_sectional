@@ -2,14 +2,21 @@ import os
 import shutil
 from pathlib import Path
 import re
-from bs4 import BeautifulSoup
-import numpy as np
 
 # bids helpers
 def getSubjectID(path):
     """
-    :param path: path to data file
-    :return: return the BIDS-compliant subject ID
+    This function extracts the subject ID from the file path (BIDS format)
+
+    Parameters:
+    -----------
+    path : str
+        Path to data file
+    
+    Returns:
+    --------
+    found : str 
+        BIDS-compliant subject ID
     """
     stringList = str(path).split("/")
     indices = [i for i, s in enumerate(stringList) if 'sub-' in s]
@@ -22,8 +29,17 @@ def getSubjectID(path):
 
 def getSessionID(path):
     """
-    :param path: path to data file
-    :return: return the BIDS-compliant session ID
+    This function extracts the seesion ID from the file path (BIDS format)
+
+    Parameters:
+    -----------
+    path : str
+        Path to data file
+    
+    Returns:
+    --------
+    found : str 
+        BIDS-compliant session ID
     """
     stringList = str(path).split("/")
     indices = [i for i, s in enumerate(stringList) if '_ses-' in s]
@@ -34,47 +50,65 @@ def getSessionID(path):
         found = ''
     return found
 
-# multiprocessing helpers
 def split_list(alist, splits=1):
+    """
+    This function splits a list for multiprocessing
+
+    Parameters:
+    -----------
+    alist : list
+        The list that should be split into multiple sub-lists
+    
+    Returns:
+    --------
+    alist : list
+        This list contains the multiple sub-lists that are used for multiprocessing
+    """
     length = len(alist)
     return [alist[i * length // splits: (i + 1) * length // splits]
             for i in range(splits)]
 
+def CopyandCheck(src, dst):
+    """
+    This function tries to copy a file with original path (src) to a target path (dst) and 
+    checks if the src file exists and if it was copied successfully to dst
 
-# path helpers
-def MoveandCheck(orig, target):
-    '''
-    This function tries to move a file with current path "orig" to a target path "target" and 
-    checks if the orig file exists and if it was copied successfully to target
-    :param orig: full path of original location (with (original) filename in the path)
-    :param target: full path of target location (with (new) filename in the path)
-    '''
-    if os.path.exists(orig):
-        shutil.move(orig, target)
-        if not os.path.exists(target):
-            raise ValueError(f'failed to move {orig}')
-        else:
-            print(f'successfully copied {os.path.basename(orig)} to {os.path.basename(target)} target location')
+    Parameters:
+    -----------
+    src : str
+        Full path of original location (with filename in the path)
+    dst : str 
+        Full path of target location (with filename in the path)
+
+    Returns:
+    --------
+    None
+        The function copies files (with renaming) from an original path (src) to a target path (dst) 
+    """
+    if os.path.exists(src):
+        shutil.copy(src, dst)
+        if not os.path.exists(dst):
+            raise ValueError(f'failed to copy {src}')
+        # else:
+        #     print(f'successfully copied {os.path.basename(src)} to {os.path.basename(dst)} target location')
     else:
-        raise Warning(f'file {os.path.basename(orig)} does not exist in original folder!')
+        raise Warning(f'File {os.path.basename(src)} does not exist in original folder!')
 
+def getfileList(path, suffix):
+    """
+    This function lists all "*suffix"-files that are in the given path. 
 
-def getSegList(path):
-    '''
-    This function lists all "*_seg.mgz"-files that are in the given path. 
-
-    :param path: path to BIDS derviatives database
-    :return: return the lists of "*_seg.mgz"-files.
-    '''
-    seg_ls = sorted(list(Path(path).rglob('*_seg.mgz')))
-    return seg_ls
-
-def parse_pbvc_from_html_fsl(filename):
-    with open(filename,'r') as f:
-        html_content = f.read()
-    soup = BeautifulSoup(html_content, 'html.parser')
-    pbvc_text = str(soup.find_all('b')[5])
-    assert "PBVC" in pbvc_text, 'Cannot extract pbvc from report.html, naming convention changed!'
-    number = pbvc_text.split(':')[1]
-    pbvc_value = float(number.split('<')[0])
-    return pbvc_value
+    Parameters:
+    -----------
+    path : str
+        Path to directory in which we want to search for files
+    suffix : str
+        Suffix of the files we want to list (e.g., "*.nii.gz")
+    
+    Returns:
+    --------
+    file_ls : list
+        Return the lists of "*suffix"-files.
+    """
+    file_ls = sorted(list(Path(path).rglob(suffix)))
+    return file_ls
