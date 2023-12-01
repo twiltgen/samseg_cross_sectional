@@ -2,10 +2,8 @@ import argparse
 import os
 from pathlib import Path
 import pandas as pd
-import re
-import numpy as np
 
-from utils import getSegList, getfileList, getSessionID, getSubjectID
+from utils import getfileList, getSessionID, getSubjectID
 
 ####################################################
 # main script
