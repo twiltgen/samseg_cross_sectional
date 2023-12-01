@@ -1,6 +1,7 @@
 import argparse
 import os
 import shutil
+import datetime
 from pathlib import Path
 import multiprocessing
 from utils import getSessionID, getSubjectID, CopyandCheck, split_list, getfileList
@@ -48,7 +49,7 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
 
 
     # run mri_coreg and get transformation
-    print(f'sub-{subID}_ses-{sesID}: start FLAIR->T1w registration...')
+    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start FLAIR->T1w registration...')
     os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                 cd {output_dir}; \
                 mri_coreg --mov {im_flair} --ref {im_t1} --reg {flair_reg_field};\
@@ -58,11 +59,11 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
                 cd {output_dir}; \
                 mri_vol2vol --mov {im_flair} --reg {flair_reg_field} --o {im_flair_reg} --targ {im_t1};\
                 ')
-    print(f'sub-{subID}_ses-{sesID}: FLAIR->T1w registration DONE!')
+    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: FLAIR->T1w registration DONE!')
 
 
     # copy the FLAIR transformation file
-    print(f'sub-{subID}_ses-{sesID}: copy SAMSEG output files to BIDS...')
+    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: copy SAMSEG output files to BIDS...')
     reg_field_temp_location = os.path.join(output_dir, flair_reg_field)
     reg_field_target_location = os.path.join(deriv_ses, flair_reg_field)
     CopyandCheck(src = reg_field_temp_location, 
@@ -141,7 +142,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
                 stats_file = os.path.join(deriv_ses, f'sub-{subID}_ses-{sesID}_space-T1w_samseg.stats')
                 tiv_file = os.path.join(deriv_ses, f'sub-{subID}_ses-{sesID}_space-T1w_sbtiv.stats')
                 if os.path.exists(seg_file) and os.path.exists(stats_file) and os.path.exists(tiv_file):
-                    print(f'sub-{subID}_ses-{sesID}: SAMSEG segmentation already exists, skip and proceed to next case...')
+                    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: SAMSEG segmentation already exists, skip and proceed to next case...')
                     continue
 
                 # register FLAIR->T1w if --coregister flag was used or if registered FLAIR does not exist
@@ -157,18 +158,18 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
 
 
                 # run SAMSEG cross sectional segmentation 
-                print(f'sub-{subID}_ses-{sesID}: start SAMSEG segmentation...')
+                print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start SAMSEG segmentation...')
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             cd {temp_dir}; \
                             run_samseg --input {t1w[i]} {flair_reg} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o .\
                             ')
-                print(f'sub-{subID}_ses-{sesID}: SAMSEG segmentation DONE!')
+                print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: SAMSEG segmentation DONE!')
 
 
                 # check if folder contains seg.mgz file, indicating that SAMSEG successfully finished
                 output_files = os.listdir(temp_dir)
                 if ('seg.mgz' in output_files):
-                    print(f'sub-{subID}_ses-{sesID}: copy SAMSEG files to BIDS database...')
+                    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: copy SAMSEG files to BIDS database...')
                     # iterate over all output files and copy them to derivatives anat folder
                     for filename in output_files:
                         # rename to BIDS
@@ -180,40 +181,40 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
                         # copy file
                         CopyandCheck(src = filename_temp_location, 
                                      dst = filename_target_location)
-                    print(f'sub-{subID}_ses-{sesID}: copied all SAMSEG files to BIDS database!')
+                    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: copied all SAMSEG files to BIDS database!')
                 else:
-                    print(f'sub-{subID}_ses-{sesID}: failed to generate segmentation, delete ouput folder...')
+                    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: failed to generate segmentation, delete ouput folder...')
                     shutil.rmtree(temp_dir)
                     if os.path.exists(temp_dir):
-                        raise ValueError(f'sub-{subID}_ses-{sesID}: failed to delete the template folder: {temp_dir}')
+                        raise ValueError(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: failed to delete the template folder: {temp_dir}')
                     else:
-                        print(f'sub-{subID}_ses-{sesID}: successfully deleted the template folder: {temp_dir}')
+                        print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: successfully deleted the template folder: {temp_dir}')
                         continue
                 
                 
                 # convert .mgz FLAIR and segmentation files to nifti
-                print(f'sub-{subID}_ses-{sesID}: convert seg.mgz to nifti file...')
+                print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert seg.mgz to nifti file...')
                 seg_file_nii = str(seg_file).replace('.mgz', '.nii.gz')
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             mri_convert {seg_file} {seg_file_nii}')
-                print(f'sub-{subID}_ses-{sesID}: convert seg.mgz to nifti DONE!')
-                print(f'sub-{subID}_ses-{sesID}: convert space-T1w_FLAIR.mgz to nifti file...')
+                print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert seg.mgz to nifti DONE!')
+                print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert space-T1w_FLAIR.mgz to nifti file...')
                 flair_reg_nii = str(flair_reg).replace('.mgz', '.nii.gz')
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             mri_convert {flair_reg} {flair_reg_nii}')
-                print(f'sub-{subID}_ses-{sesID}: convert space-T1w_FLAIR.mgz to nifti DONE!')
+                print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert space-T1w_FLAIR.mgz to nifti DONE!')
 
 
                 # delete the temp folder if --remove_temp flag was used
                 if remove_temp:
                     shutil.rmtree(temp_dir)
                     if os.path.exists(temp_dir):
-                        raise ValueError(f'sub-{subID}_ses-{sesID}: failed to delete the template folder.')
+                        raise ValueError(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: failed to delete the template folder.')
                     else:
-                        print(f'sub-{subID}_ses-{sesID}: successfully deleted the template folder.')
+                        print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: successfully deleted the template folder.')
 
             except:
-                print(f'sub-{subID}_ses-{sesID}: Error occured during processing, proceeding with next case.')
+                print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: Error occured during processing, proceeding with next case.')
             
 if __name__ == "__main__":
 
