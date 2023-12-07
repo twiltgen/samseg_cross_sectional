@@ -20,9 +20,10 @@ derivatives_dir = os.path.join(args.input_directory, "derivatives/samseg-7.3.2")
 
 # get a list with all subject folders in the database
 T1w_list = getfileList(path = args.input_directory, 
-                       suffix = '*T1w*')
+                       suffix = '*T1w.*')
 T1w_list = [str(x) for x in T1w_list if (('.nii.gz' in str(x)) and 
-                                         (not 'GADOLINIUM' in str(x)))]
+                                         (not 'GADOLINIUM' in str(x)) and
+                                         (not 'derivatives' in str(x)))]
 
 # get a list with the paths of the _seg.mgz files 
 seg_list = getfileList(derivatives_dir, '*_space-T1w_seg.nii.gz')
