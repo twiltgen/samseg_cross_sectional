@@ -108,9 +108,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
         # assemble T1w file lists
         # since we need T1w AND FLAIR images, we can first list all T1w images and then check if FLAIR image also exists
         t1w = getfileList(path = dir, 
-                          suffix = '*T1w*')
+                          suffix = '*T1w.*')
         t1w = [str(x) for x in t1w if (('.nii.gz' in str(x)) and 
-                                       (not 'GADOLINIUM' in str(x)))]
+                                       (not 'GADOLINIUM' in str(x)) and
+                                       (not 'derivatives' in str(x)))]
         
 
         # get subject ID of current subject
