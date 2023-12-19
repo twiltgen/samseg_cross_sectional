@@ -113,9 +113,12 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
                                        (not 'GADOLINIUM' in str(x)) and
                                        (not 'derivatives' in str(x)))]
         
-
-        # get subject ID of current subject
-        subID = getSubjectID(path = t1w[0])
+        if len(t1w)>0:
+            # get subject ID of current subject
+            subID = getSubjectID(path = t1w[0])
+        else:
+            print(f'{datetime.datetime.now()} sub-{subID}: No T1w image available, proceed to next case...')
+            continue
 
 
         # iterate over all session with T1w images and check if FLAIR files are available and if segmentation already exists

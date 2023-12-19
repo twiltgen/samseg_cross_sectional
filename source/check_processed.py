@@ -53,7 +53,7 @@ for i in range(len(T1w_list)):
         dict_miss = {df_seg_missing.columns[0]:[subjectID], df_seg_missing.columns[1]:[sessionID]}
         df_miss = pd.DataFrame(data=dict_miss)
         df_seg_missing = pd.concat([df_seg_missing, df_miss])
-        print(f'{subjectID}/{sessionID}: segmentation failed!')
+        print(f'{subjectID}/{sessionID}: segmentation missing!')
 
 
 # write dataframe with missing files as .csv file in chosen output directory
