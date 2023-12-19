@@ -172,6 +172,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
 
                 # check if folder contains seg.mgz file, indicating that SAMSEG successfully finished
                 output_files = os.listdir(temp_dir)
+                output_files = [str(x) for x in output_files if ('_space-T1w_FLAIR.' not in str(x))]
                 if ('seg.mgz' in output_files):
                     print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: copy SAMSEG files to BIDS database...')
                     # iterate over all output files and copy them to derivatives anat folder
