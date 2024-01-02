@@ -52,12 +52,12 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
     print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start FLAIR->T1w registration...')
     os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                 cd {output_dir}; \
-                mri_coreg --mov {im_flair} --ref {im_t1} --reg {flair_reg_field};\
+                timeout 3600 mri_coreg --mov {im_flair} --ref {im_t1} --reg {flair_reg_field};\
                 ')
     # run mri_vol2vol and apply transformation to FLAIR
     os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                 cd {output_dir}; \
-                mri_vol2vol --mov {im_flair} --reg {flair_reg_field} --o {im_flair_reg} --targ {im_t1};\
+                timeout 3600 mri_vol2vol --mov {im_flair} --reg {flair_reg_field} --o {im_flair_reg} --targ {im_t1};\
                 ')
     print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: FLAIR->T1w registration DONE!')
 
@@ -165,7 +165,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start SAMSEG segmentation...')
                 os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
                             cd {temp_dir}; \
-                            run_samseg --input {t1w[i]} {flair_reg} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o .\
+                            timeout 15000 run_samseg --input {t1w[i]} {flair_reg} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o .\
                             ')
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: SAMSEG segmentation DONE!')
 
