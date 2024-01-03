@@ -8,7 +8,7 @@ Reuired to install the following dependencies:
 - Freesurfer v. 7.3.2, c.f.: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
 
 I am using an environment with the packages that are listed in requirements.txt. 
-Since this environment is used for other processing purposes as well, it might contain packages that are not required for the processing pipeline in this repository
+Since this environment is used for other processing purposes as well, it might contain packages that are not required for the processing pipeline in this repository.
 You can create an environment with the packages by running the following command:
 ```
 conda create --name <env> --file requirements.txt
@@ -48,7 +48,7 @@ You can check which cases have been processed by using the following command:
 ```
 python3 xxx/check_processed.py -i /path/to/bids/database -o /path/to/output/folder
 ```
-The script will generate two csv files: one with a list of processed images and one with a list of imaged that have npot been processed yet
+The script will generate two csv files: one with a list of processed images and one with a list of images that have not been processed yet
 
 
 ### Any questions?
