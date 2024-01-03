@@ -9,9 +9,9 @@ Reuired to install the following dependencies:
 
 I am using an environment with the packages that are listed in requirements.txt. 
 Since this environment is used for other processing purposes as well, it might contain packages that are not required for the processing pipeline in this repository
-You can install the packages by running the following command:
+You can create an environment with the packages by running the following command:
 ```
-pip install -r requirements.txt
+conda create --name <env> --file requirements.txt
 ```
 
 
