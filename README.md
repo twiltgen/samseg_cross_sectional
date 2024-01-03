@@ -8,30 +8,33 @@ Reuired to install the following dependencies:
 - Freesurfer v. 7.3.2, c.f.: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
 
 
-Please create a conda environment with the following packages:
-- 
-
 ### Introduction
 
 The database should be BIDS conform, since scripts require a database as input that is in BIDS fromat.
 
-### Dataset structure
-BIDS-compliant datastructure:
-Output Data Structure (not 100% BIDS, we are working on it!). Important files highlighted!:
 
 ### Processing
 
-1. To run the samseg longitudinal pipeline + fsl-based pbvc calculation, please install freesurfer and run the following command:
+1. To run the samseg cross sectional pipeline, please install freesurfer and run the following command:
 
 ```
-python3 xxx/xxx.py --input_directory /path/to/bids --number_of_workers 32 --freesurfer_path /path/to/fs/installation
+python3 xxx/run_samseg_cross.py -i /path/to/bids/database -n 15 --coregister --remove_temp
 ```
 
-2. To aggregate all results into a single csv tabel for analysis please run the following command:
+2. To aggregate all results into a single csv table for analysis please run the following command:
 
 ```
-python3 xxx/run_analysis.py --input_directory /path/to/processed/cohort --output_directory /path/to/output
+python3 xxx/run_analysis.py -i /path/to/bids/database -o /path/to/output/folder
 ```
+
+### optional
+You can check which cases have been processed by using the following command:
+
+```
+python3 xxx/check_processed.py -i /path/to/bids/database -o /path/to/output/folder
+```
+The script will generate two csv files: one with a list of processed images and one with a list of imaged that have npot been processed yet
+
 
 ### Any questions?
 
