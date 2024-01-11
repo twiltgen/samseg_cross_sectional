@@ -42,7 +42,7 @@ def getSessionID(path):
         BIDS-compliant session ID
     """
     stringList = str(path).split("/")
-    indices = [i for i, s in enumerate(stringList) if '_ses-' in s]
+    indices = [i for i, s in enumerate(stringList) if 'ses-' in s]
     text = stringList[indices[0]]
     try:
         found = re.search(r'ses-(\d{8})', text).group(1)
