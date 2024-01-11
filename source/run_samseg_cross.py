@@ -74,6 +74,65 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
     CopyandCheck(src = flair_temp_location, 
                  dst = flair_target_location)
 
+def availability_check(sub_dirs, deriv_dir, file_suffix):
+    """
+    This function checks availability of files with a specific suffix (e.g., "_space-T1w_seg.nii.gz") within a derivatives folder for each subject in the provided list and outputs two lists, 
+    one with subjects with missing files and one with subjects fow hich all fuiles are available. First, the function iterates over all subjects, and for each subject it lists all available 
+    sessions and then checks the availability of files for each session in the provided derivatives folder.
+
+    Parameters:
+    -----------
+    sub_dirs : list
+        List with all subject IDs for which availability of files should be checked
+    deriv_dir : str
+        Path of derivatives folder in which availability of files should be checked
+    file_suffix : str
+        Suffix of files for which availability should be checked
+    
+    Returns:
+    --------
+    sub_missing : list
+        List with subjects for which one or more files are missing
+    sub_available : list 
+        List with subjects for which all files are available
+    """
+    # initialize empty lists
+    sub_missing = []
+    sub_available = []
+
+    # iterate through all subject folders
+    for sub_dir in sub_dirs:
+        # get subject ID
+        sub_ID = getSubjectID(sub_dir)
+
+        # list all sessions
+        ses_dirs = sorted(list(Path(sub_dir).glob('*')))
+        ses_dirs = [str(x) for x in ses_dirs if "ses-" in str(x)]
+        
+        # initialize availability list 
+        any_missing = []
+
+        # iterate through all sessions
+        for ses_dir in ses_dirs:
+            # get session ID
+            ses_ID = getSessionID(ses_dir)
+
+            # check availability of file in for this session
+            file_path = os.path.join(deriv_dir, f'sub-{sub_ID}', f'ses-{ses_ID}', 'anat', f'sub-{sub_ID}_ses-{ses_ID}_{file_suffix}')
+            if os.path.exists(file_path):
+                any_missing.append(False)
+            else:
+                any_missing.append(True)
+        
+        # check if files are missing for any of the sessions and add subject to sub_missing or sub_available accordingly
+        if any(any_missing):
+            sub_missing.append(sub_dir)
+        else:
+            sub_available.append(sub_dir)
+    
+    return sub_missing, sub_available
+
+
 def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, coregister=False):
     """
     This function applies SAMSEG segmentation and also applies required pre-processing steps of the T1w and FLAIR images if necessary. 
@@ -255,7 +314,17 @@ if __name__ == "__main__":
     dirs = sorted(list(data_root.glob('*')))
     dirs = [str(x) for x in dirs]
     dirs = [x for x in dirs if "sub-" in x]
-    files = split_list(alist = dirs, 
+
+    # check which files have already been processed
+    dirs_missing, dirs_processed = availability_check(sub_dirs=dirs,
+                                                      deriv_dir=derivatives_dir,
+                                                      file_suffix='space-T1w_seg.nii.gz')
+    print(f'Number of incomplete subjects: {len(dirs_missing)}')
+    print(f'Number of complete subjects: {len(dirs_processed)}')
+    
+    # only split the list of subjects with missing segmentations for multiprocessing 
+    # (including subjects of which all images have already been processed would reduce efficiency)
+    files = split_list(alist = dirs_missing, 
                        splits = args.number_of_workers)
 
 
