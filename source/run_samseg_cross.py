@@ -119,10 +119,12 @@ def availability_check(sub_dirs, deriv_dir, file_suffix):
 
             # check availability of file in for this session
             file_path = os.path.join(deriv_dir, f'sub-{sub_ID}', f'ses-{ses_ID}', 'anat', f'sub-{sub_ID}_ses-{ses_ID}_{file_suffix}')
-            if os.path.exists(file_path):
-                any_missing.append(False)
-            else:
+            t1_path = os.path.join(ses_dir, 'anat', f'sub-{sub_ID}_ses-{ses_ID}_T1w.nii.gz')
+            flair_path = os.path.join(ses_dir, 'anat', f'sub-{sub_ID}_ses-{ses_ID}_FLAIR.nii.gz')
+            if (not os.path.exists(file_path)) and os.path.exists(t1_path) and os.path.exists(flair_path):
                 any_missing.append(True)
+            else:
+                any_missing.append(False)
         
         # check if files are missing for any of the sessions and add subject to sub_missing or sub_available accordingly
         if any(any_missing):
@@ -133,7 +135,7 @@ def availability_check(sub_dirs, deriv_dir, file_suffix):
     return sub_missing, sub_available
 
 
-def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, coregister=False):
+def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID, remove_temp=False, coregister=False):
     """
     This function applies SAMSEG segmentation and also applies required pre-processing steps of the T1w and FLAIR images if necessary. 
     Pre-processing includes mri_coreg to generate the transformation and mri_vol2vol to apply the transformation to the FLAIR image.
@@ -279,6 +281,9 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, remove_temp=False, co
 
             except:
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: Error occured during processing, proceeding with next case.')
+    
+    # save a file indicating that processing has finished
+    open(f'{str(Path(derivatives_dir).parent)}/__finished{process_ID}__', 'a').close()
             
 if __name__ == "__main__":
 
@@ -332,7 +337,7 @@ if __name__ == "__main__":
     pool = multiprocessing.Pool(processes=args.number_of_workers)
     # call samseg processing function in multiprocessing setting
     for x in range(0, args.number_of_workers):
-        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path, remove_temp, coregister))
+        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path, x, remove_temp, coregister))
 
     pool.close()
     pool.join()
