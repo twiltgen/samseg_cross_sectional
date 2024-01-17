@@ -135,7 +135,7 @@ def availability_check(sub_dirs, deriv_dir, file_suffix):
     return sub_missing, sub_available
 
 
-def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID, remove_temp=False, coregister=False):
+def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_temp=False, coregister=False):
     """
     This function applies SAMSEG segmentation and also applies required pre-processing steps of the T1w and FLAIR images if necessary. 
     Pre-processing includes mri_coreg to generate the transformation and mri_vol2vol to apply the transformation to the FLAIR image.
@@ -153,6 +153,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID, remove_te
         Path of the SAMSEG derivatives folder in the BIDS database
     freesurfer_path : str
         Path to freesurfer binaries
+    process_ID : int
+        identifier of process number (for multiprocessing)
     remove_temp : bool
         Boolean variable indicating if the output folder should be removed after segmentation files were generated and copied to BIDS database
     coregister : bool
