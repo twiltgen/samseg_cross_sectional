@@ -90,4 +90,4 @@ for i in range(len(seg_list)):
     print(f'sub-{subjectID}_ses-{sessionID}: stats added.')
 
 # write stats table to .csv file in chosen output directory
-df_stat.to_csv(os.path.join(args.output_directory, "volume_samseg_raw_test.csv"), index=False)
+df_stat.to_csv(os.path.join(args.output_directory, "volume_samseg_raw.csv"), index=False)
