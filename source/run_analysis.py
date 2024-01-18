@@ -84,10 +84,10 @@ for i in range(len(seg_list)):
     subjectID = getSubjectID(seg_list[i])
     sessionID = getSessionID(seg_list[i])
     # get stats of current session
-    loop_stat = combineStats(derivatives_dir, subjectID, sessionID)
+    loop_stat = combineStats(derivatives_dir, subjectID, sessionID, args.brain_parenchyma)
     # write stats in the final dataframe
     df_stat = pd.concat([df_stat, loop_stat])
     print(f'sub-{subjectID}_ses-{sessionID}: stats added.')
 
 # write stats table to .csv file in chosen output directory
-df_stat.to_csv(os.path.join(args.output_directory, "volume_samseg_raw.csv"), index=False)
+df_stat.to_csv(os.path.join(args.output_directory, "volume_samseg_raw_test.csv"), index=False)
