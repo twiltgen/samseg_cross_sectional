@@ -61,33 +61,38 @@ def combineStats(path, subID, sesID, brain_volumes):
 
 ####################################################
 # main script
+if __name__ == "__main__":
 
-parser = argparse.ArgumentParser(description='Read Volumes of SAMSEG Longitudinal Segmentation.')
-parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
-parser.add_argument('-bp', '--brain_parenchyma', help='Path of file which contains a list with volumes that should be considered for brain parenchyma volume calculation.', required=True)
-parser.add_argument('-o', '--output_directory', help='Destination folder for the output table with volume stats.', default='/home/twiltgen/media/twiltgen/raid3/Tun/MR_database/Data/Database')
+    parser = argparse.ArgumentParser(description='Read Volumes of SAMSEG Longitudinal Segmentation.')
+    parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
+    parser.add_argument('-o', '--output_directory', help='Destination folder for the output table with volume stats.', default='/home/twiltgen/media/twiltgen/raid3/Tun/MR_database/Data/Database')
 
-# read the arguments
-args = parser.parse_args()
+    # read the arguments
+    args = parser.parse_args()
 
-# define path of the derivatives folder
-derivatives_dir = os.path.join(args.input_directory, "derivatives/samseg-7.3.2")
+    # get directories
+    parent_dir = os.path.dirname(os.path.dirname(__file__))
+    files_dir = os.path.join(parent_dir, 'files')
+    bp_dir = os.path.join(files_dir, 'SAMSEG_brain_parenchyma_volumes.csv')
 
-# get a list with the paths of the _seg.mgz files 
-# (we do this because we only want subject- and session-IDs for the cases that have been successfully segmented by SAMSEG)
-seg_list = getfileList(path = derivatives_dir, 
-                       suffix = '*_seg.mgz')
-# initialize empty dataframe into which we will write the stats data of all cases
-df_stat = pd.DataFrame()
-for i in range(len(seg_list)):
-    # get subject and session ID
-    subjectID = getSubjectID(seg_list[i])
-    sessionID = getSessionID(seg_list[i])
-    # get stats of current session
-    loop_stat = combineStats(derivatives_dir, subjectID, sessionID, args.brain_parenchyma)
-    # write stats in the final dataframe
-    df_stat = pd.concat([df_stat, loop_stat])
-    print(f'sub-{subjectID}_ses-{sessionID}: stats added.')
+    # define path of the derivatives folder
+    derivatives_dir = os.path.join(args.input_directory, "derivatives/samseg-7.3.2")
 
-# write stats table to .csv file in chosen output directory
-df_stat.to_csv(os.path.join(args.output_directory, "volume_samseg_raw.csv"), index=False)
+    # get a list with the paths of the _seg.mgz files 
+    # (we do this because we only want subject- and session-IDs for the cases that have been successfully segmented by SAMSEG)
+    seg_list = getfileList(path = derivatives_dir, 
+                        suffix = '*_seg.mgz')
+    # initialize empty dataframe into which we will write the stats data of all cases
+    df_stat = pd.DataFrame()
+    for i in range(len(seg_list)):
+        # get subject and session ID
+        subjectID = getSubjectID(seg_list[i])
+        sessionID = getSessionID(seg_list[i])
+        # get stats of current session
+        loop_stat = combineStats(derivatives_dir, subjectID, sessionID, bp_dir)
+        # write stats in the final dataframe
+        df_stat = pd.concat([df_stat, loop_stat])
+        print(f'sub-{subjectID}_ses-{sessionID}: stats added.')
+
+    # write stats table to .csv file in chosen output directory
+    df_stat.to_csv(os.path.join(args.output_directory, "volume_samseg_raw.csv"), index=False)
