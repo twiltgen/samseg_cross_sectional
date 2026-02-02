@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import datetime
+import subprocess
 from pathlib import Path
 import multiprocessing
 from utils import getSessionID, getSubjectID, CopyandCheck, split_list, getfileList
@@ -50,15 +51,29 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
 
     # run mri_coreg and get transformation
     print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start FLAIR->T1w registration...')
-    os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                cd {output_dir}; \
-                timeout 3600 mri_coreg --mov {im_flair} --ref {im_t1} --reg {flair_reg_field};\
-                ')
-    # run mri_vol2vol and apply transformation to FLAIR
-    os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                cd {output_dir}; \
-                timeout 3600 mri_vol2vol --mov {im_flair} --reg {flair_reg_field} --o {im_flair_reg} --targ {im_t1};\
-                ')
+    # mri_coreg command
+    cmd = f'''
+            export FREESURFER_HOME={freesurfer_path} && \
+            source {freesurfer_path}/SetUpFreeSurfer.sh && \
+            cd {output_dir} && \
+            timeout 3600 mri_coreg --mov {im_flair} --ref {im_t1} --reg {flair_reg_field}
+          '''
+    result = subprocess.run(cmd, shell=True, executable='/bin/bash', 
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Error: {result.stderr}")
+
+    # mri_vol2vol command
+    cmd = f'''
+            export FREESURFER_HOME={freesurfer_path} && \
+            source {freesurfer_path}/SetUpFreeSurfer.sh && \
+            cd {output_dir} && \
+            timeout 3600 mri_vol2vol --mov {im_flair} --reg {flair_reg_field} --o {im_flair_reg} --targ {im_t1}
+          '''
+    result = subprocess.run(cmd, shell=True, executable='/bin/bash', 
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Error: {result.stderr}")
     print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: FLAIR->T1w registration DONE!')
 
 
@@ -226,10 +241,16 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
 
                 # run SAMSEG cross sectional segmentation 
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start SAMSEG segmentation...')
-                os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                            cd {temp_dir}; \
-                            timeout 15000 run_samseg --input {t1w[i]} {flair_reg} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o .\
-                            ')
+                cmd = f'''
+                        export FREESURFER_HOME={freesurfer_path} && \
+                        source {freesurfer_path}/SetUpFreeSurfer.sh && \
+                        cd {temp_dir} && \
+                        timeout 15000 run_samseg --input {t1w[i]} {flair_reg} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o .
+                      '''
+                result = subprocess.run(cmd, shell=True, executable='/bin/bash',
+                                        capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"Error: {result.stderr}")
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: SAMSEG segmentation DONE!')
 
 
@@ -263,13 +284,28 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
                 # convert .mgz FLAIR and segmentation files to nifti
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert seg.mgz to nifti file...')
                 seg_file_nii = str(seg_file).replace('.mgz', '.nii.gz')
-                os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                            mri_convert {seg_file} {seg_file_nii}')
+                cmd = f'''
+                        export FREESURFER_HOME={freesurfer_path} && \
+                        source {freesurfer_path}/SetUpFreeSurfer.sh && \
+                        mri_convert {seg_file} {seg_file_nii}
+                      '''
+                result = subprocess.run(cmd, shell=True, executable='/bin/bash',
+                                        capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"Error: {result.stderr}")
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert seg.mgz to nifti DONE!')
+
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert space-T1w_FLAIR.mgz to nifti file...')
                 flair_reg_nii = str(flair_reg).replace('.mgz', '.nii.gz')
-                os.system(f'export FREESURFER_HOME={freesurfer_path} ; \
-                            mri_convert {flair_reg} {flair_reg_nii}')
+                cmd = f'''
+                        export FREESURFER_HOME={freesurfer_path} && \
+                        source {freesurfer_path}/SetUpFreeSurfer.sh && \
+                        mri_convert {flair_reg} {flair_reg_nii}
+                      '''
+                result = subprocess.run(cmd, shell=True, executable='/bin/bash',
+                                        capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"Error: {result.stderr}")
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert space-T1w_FLAIR.mgz to nifti DONE!')
 
 
