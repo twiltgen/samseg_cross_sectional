@@ -7,12 +7,42 @@ from pathlib import Path
 import multiprocessing
 from utils import getSessionID, getSubjectID, CopyandCheck, split_list, getfileList
 
-def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, freesurfer_path):
+def get_freesurfer_env(freesurfer_path):
     """
-    This function coregisters the T1w and FLAIR images (FLAIR -> T1w), which is necessary for proceesing with samseg. 
+    Sources the FreeSurfer setup script once (in a throwaway bash process) and returns the
+    resulting environment as a dict. Downstream subprocess calls reuse this dict via the
+    env= argument instead of each re-sourcing SetUpFreeSurfer.sh themselves, which avoids
+    repeated shell-startup and script-parsing overhead on every single command.
+
+    Parameters:
+    -----------
+    freesurfer_path : str
+        Path to freesurfer binaries
+
+    Returns:
+    --------
+    env : dict
+        Environment variables (including PATH, FREESURFER_HOME, etc.) after sourcing
+        SetUpFreeSurfer.sh, suitable for passing as subprocess.run(..., env=env)
+    """
+    cmd = f'''
+            export FREESURFER_HOME={freesurfer_path} && \
+            source {freesurfer_path}/SetUpFreeSurfer.sh > /dev/null && \
+            env -0
+          '''
+    result = subprocess.run(cmd, shell=True, executable='/bin/bash',
+                            capture_output=True, text=True, check=True)
+    env = dict(
+        entry.split('=', 1) for entry in result.stdout.split('\0') if '=' in entry
+    )
+    return env
+
+def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, env):
+    """
+    This function coregisters the T1w and FLAIR images (FLAIR -> T1w), which is necessary for proceesing with samseg.
     We use the mri_coreg to generate the transformation and mri_vol2vol to apply the transformation to the FLAIR image.
-    All resulting files are saved to the output folder. In order to be compliant with BIDS convention, we copy these files from the output folder 
-    to the corresponding location in the BIDS databse. 
+    All resulting files are saved to the output folder. In order to be compliant with BIDS convention, we copy these files from the output folder
+    to the corresponding location in the BIDS databse.
 
     Parameters:
     -----------
@@ -24,12 +54,12 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
         Path of the FLAIR image in original subject space
     output_dir : str
         Path to the output folder where the SAMSEG files should be stored
-    freesurfer_path : str
-        Path to freesurfer binaries
-    
+    env : dict
+        FreeSurfer-enabled environment (from get_freesurfer_env) to run commands with
+
     Returns:
     --------
-    None 
+    None
         This function produces FLAIR images registered to T1w images. Resulting files are copied to BIDS database.
     """
     # get subject and session IDs
@@ -37,7 +67,7 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
     sesID = getSessionID(path = im_t1)
 
 
-    # pre-define paths of registered image(s) 
+    # pre-define paths of registered image(s)
     flair_reg_field = str(Path(im_flair_reg).name).replace(".mgz", ".lta")
 
 
@@ -52,25 +82,15 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, f
     # run mri_coreg and get transformation
     print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start FLAIR->T1w registration...')
     # mri_coreg command
-    cmd = f'''
-            export FREESURFER_HOME={freesurfer_path} && \
-            source {freesurfer_path}/SetUpFreeSurfer.sh && \
-            cd {output_dir} && \
-            timeout 3600 mri_coreg --mov {im_flair} --ref {im_t1} --reg {flair_reg_field}
-          '''
-    result = subprocess.run(cmd, shell=True, executable='/bin/bash', 
+    cmd = ['timeout', '3600', 'mri_coreg', '--mov', im_flair, '--ref', im_t1, '--reg', flair_reg_field]
+    result = subprocess.run(cmd, cwd=output_dir, env=env,
                             capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
 
     # mri_vol2vol command
-    cmd = f'''
-            export FREESURFER_HOME={freesurfer_path} && \
-            source {freesurfer_path}/SetUpFreeSurfer.sh && \
-            cd {output_dir} && \
-            timeout 3600 mri_vol2vol --mov {im_flair} --reg {flair_reg_field} --o {im_flair_reg} --targ {im_t1}
-          '''
-    result = subprocess.run(cmd, shell=True, executable='/bin/bash', 
+    cmd = ['timeout', '3600', 'mri_vol2vol', '--mov', im_flair, '--reg', flair_reg_field, '--o', im_flair_reg, '--targ', im_t1]
+    result = subprocess.run(cmd, cwd=output_dir, env=env,
                             capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
@@ -177,9 +197,12 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
     
     Returns:
     --------
-    None 
-        This function produces SAMSEG segmentation files, inlcuding brain volume segmentation files (with lesion segmentation) 
+    None
+        This function produces SAMSEG segmentation files, inlcuding brain volume segmentation files (with lesion segmentation)
     """
+    # source the FreeSurfer environment once per worker instead of once per command
+    env = get_freesurfer_env(freesurfer_path)
+
     # iterate through all subject folders
     for dir in dirs:
 
@@ -195,7 +218,7 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
             # get subject ID of current subject
             subID = getSubjectID(path = t1w[0])
         else:
-            print(f'{datetime.datetime.now()} sub-{subID}: No T1w image available, proceed to next case...')
+            print(f'{datetime.datetime.now()} {dir}: No T1w image available, proceed to next case...')
             continue
 
 
@@ -236,18 +259,15 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
                                    im_flair = flair,
                                    im_flair_reg = Path(flair_reg).name,
                                    output_dir = temp_dir,
-                                   freesurfer_path = freesurfer_path)
+                                   env = env)
 
 
-                # run SAMSEG cross sectional segmentation 
+                # run SAMSEG cross sectional segmentation
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: start SAMSEG segmentation...')
-                cmd = f'''
-                        export FREESURFER_HOME={freesurfer_path} && \
-                        source {freesurfer_path}/SetUpFreeSurfer.sh && \
-                        cd {temp_dir} && \
-                        timeout 15000 run_samseg --input {t1w[i]} {flair_reg} --threads 4 --pallidum-separate --lesion --lesion-mask-pattern 0 1 -o .
-                      '''
-                result = subprocess.run(cmd, shell=True, executable='/bin/bash',
+                cmd = ['timeout', '15000', 'run_samseg', '--input', t1w[i], flair_reg,
+                       '--threads', '4', '--pallidum-separate', '--lesion',
+                       '--lesion-mask-pattern', '0', '1', '-o', '.']
+                result = subprocess.run(cmd, cwd=temp_dir, env=env,
                                         capture_output=True, text=True)
                 if result.returncode != 0:
                     print(f"Error: {result.stderr}")
@@ -284,12 +304,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
                 # convert .mgz FLAIR and segmentation files to nifti
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert seg.mgz to nifti file...')
                 seg_file_nii = str(seg_file).replace('.mgz', '.nii.gz')
-                cmd = f'''
-                        export FREESURFER_HOME={freesurfer_path} && \
-                        source {freesurfer_path}/SetUpFreeSurfer.sh && \
-                        mri_convert {seg_file} {seg_file_nii}
-                      '''
-                result = subprocess.run(cmd, shell=True, executable='/bin/bash',
+                cmd = ['mri_convert', seg_file, seg_file_nii]
+                result = subprocess.run(cmd, env=env,
                                         capture_output=True, text=True)
                 if result.returncode != 0:
                     print(f"Error: {result.stderr}")
@@ -297,12 +313,8 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
 
                 print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: convert space-T1w_FLAIR.mgz to nifti file...')
                 flair_reg_nii = str(flair_reg).replace('.mgz', '.nii.gz')
-                cmd = f'''
-                        export FREESURFER_HOME={freesurfer_path} && \
-                        source {freesurfer_path}/SetUpFreeSurfer.sh && \
-                        mri_convert {flair_reg} {flair_reg_nii}
-                      '''
-                result = subprocess.run(cmd, shell=True, executable='/bin/bash',
+                cmd = ['mri_convert', flair_reg, flair_reg_nii]
+                result = subprocess.run(cmd, env=env,
                                         capture_output=True, text=True)
                 if result.returncode != 0:
                     print(f"Error: {result.stderr}")
