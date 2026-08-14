@@ -5,6 +5,7 @@ import datetime
 import subprocess
 from pathlib import Path
 import multiprocessing
+import pandas as pd
 from utils import getSessionID, getSubjectID, CopyandCheck, split_list, getfileList
 
 def get_freesurfer_env(freesurfer_path):
@@ -98,7 +99,7 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, e
 
 
     # copy the FLAIR transformation file
-    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: copy SAMSEG output files to BIDS...')
+    print(f'{datetime.datetime.now()} sub-{subID}_ses-{sesID}: copy registration output files to BIDS...')
     reg_field_temp_location = os.path.join(output_dir, flair_reg_field)
     reg_field_target_location = os.path.join(deriv_ses, flair_reg_field)
     CopyandCheck(src = reg_field_temp_location, 
@@ -109,10 +110,10 @@ def coreg_T1_FLAIR(derivatives_dir, im_t1, im_flair, im_flair_reg, output_dir, e
     CopyandCheck(src = flair_temp_location, 
                  dst = flair_target_location)
 
-def availability_check(sub_dirs, deriv_dir, file_suffix):
+def availability_check(sub_dirs, deriv_dir, file_suffix, cohort=None):
     """
-    This function checks availability of files with a specific suffix (e.g., "_space-T1w_seg.nii.gz") within a derivatives folder for each subject in the provided list and outputs two lists, 
-    one with subjects with missing files and one with subjects fow hich all fuiles are available. First, the function iterates over all subjects, and for each subject it lists all available 
+    This function checks availability of files with a specific suffix (e.g., "_space-T1w_seg.nii.gz") within a derivatives folder for each subject in the provided list and outputs two lists,
+    one with subjects with missing files and one with subjects fow hich all fuiles are available. First, the function iterates over all subjects, and for each subject it lists all available
     sessions and then checks the availability of files for each session in the provided derivatives folder.
 
     Parameters:
@@ -123,17 +124,22 @@ def availability_check(sub_dirs, deriv_dir, file_suffix):
         Path of derivatives folder in which availability of files should be checked
     file_suffix : str
         Suffix of files for which availability should be checked
-    
+    cohort : set or None
+        Optional set of (subID, sesID) tuples. If provided, only these subject/session pairs are checked instead of every session found for the subject.
+
     Returns:
     --------
     sub_missing : list
         List with subjects for which one or more files are missing
-    sub_available : list 
+    sub_available : list
         List with subjects for which all files are available
+    ses_missing_count : int
+        Number of individual sessions (across all subjects) for which files are missing
     """
     # initialize empty lists
     sub_missing = []
     sub_available = []
+    ses_missing_count = 0
 
     # iterate through all subject folders
     for sub_dir in sub_dirs:
@@ -152,32 +158,37 @@ def availability_check(sub_dirs, deriv_dir, file_suffix):
             # get session ID
             ses_ID = getSessionID(ses_dir)
 
+            # skip this session if a cohort was provided and this subject/session is not part of it
+            if (cohort is not None) and ((sub_ID, ses_ID) not in cohort):
+                continue
+
             # check availability of file in for this session
             file_path = os.path.join(deriv_dir, f'sub-{sub_ID}', f'ses-{ses_ID}', 'anat', f'sub-{sub_ID}_ses-{ses_ID}_{file_suffix}')
             t1_path = os.path.join(ses_dir, 'anat', f'sub-{sub_ID}_ses-{ses_ID}_T1w.nii.gz')
             flair_path = os.path.join(ses_dir, 'anat', f'sub-{sub_ID}_ses-{ses_ID}_FLAIR.nii.gz')
             if (not os.path.exists(file_path)) and os.path.exists(t1_path) and os.path.exists(flair_path):
                 any_missing.append(True)
+                ses_missing_count += 1
             else:
                 any_missing.append(False)
-        
+
         # check if files are missing for any of the sessions and add subject to sub_missing or sub_available accordingly
         if any(any_missing):
             sub_missing.append(sub_dir)
         else:
             sub_available.append(sub_dir)
-    
-    return sub_missing, sub_available
+
+    return sub_missing, sub_available, ses_missing_count
 
 
-def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_temp=False, coregister=False):
+def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_temp=False, coregister=False, cohort=None):
     """
-    This function applies SAMSEG segmentation and also applies required pre-processing steps of the T1w and FLAIR images if necessary. 
+    This function applies SAMSEG segmentation and also applies required pre-processing steps of the T1w and FLAIR images if necessary.
     Pre-processing includes mri_coreg to generate the transformation and mri_vol2vol to apply the transformation to the FLAIR image.
     Next, run SAMSEG cross sectional segmentation (including lesion segmentation). We use the T1w image and the registered FLAIR image as input.
     Next, we check if SAMSEG segmentation was successful by making sure that the seg.mgz file was generated.
-    All resulting files are saved to the output folder. In order to be compliant with BIDS convention, we copy these files from the output folder 
-    to the corresponding location in the BIDS databse. 
+    All resulting files are saved to the output folder. In order to be compliant with BIDS convention, we copy these files from the output folder
+    to the corresponding location in the BIDS databse.
     Optionally, the output folder can be deleted (e.g., to clean up if it is not needed anymore)
 
     Parameters:
@@ -194,7 +205,9 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
         Boolean variable indicating if the output folder should be removed after segmentation files were generated and copied to BIDS database
     coregister : bool
         Boolean variable indicating if the FLAIR image needs to be registered to the T1w image
-    
+    cohort : set or None
+        Optional set of (subID, sesID) tuples. If provided, only these subject/session pairs are processed instead of every session found for the subject.
+
     Returns:
     --------
     None
@@ -228,6 +241,10 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
 
                 # get session ID of current T1w image
                 sesID = getSessionID(path = t1w[i])
+
+                # skip this session if a cohort was provided and this subject/session is not part of it
+                if (cohort is not None) and ((subID, sesID) not in cohort):
+                    continue
 
                 # check availability of files and folders (create folders if necessary)
                 flair = str(t1w[i]).replace('_T1w.nii.gz', '_FLAIR.nii.gz')
@@ -338,14 +355,40 @@ def process_samseg(dirs, derivatives_dir, freesurfer_path, process_ID=0, remove_
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Run SAMSEG cross sectional Pipeline on cohort.')
-    parser.add_argument('-i', '--input_directory', help='Folder of derivatives in BIDS database.', required=True)
-    parser.add_argument('-n', '--number_of_workers', help='Number of parallel processing cores.', type=int, default=os.cpu_count()-1)
-    parser.add_argument('-f', '--freesurfer_path', help='Path to freesurfer binaries.', default='/home/twiltgen/Tun_software/Freesurfer/FS_7.3.2/freesurfer')
-    parser.add_argument('--coregister', action='store_true')
-    parser.add_argument('--remove_temp', action='store_true')
+    parser.add_argument('-i', '--input_directory', 
+                        help='Folder of derivatives in BIDS database.', 
+                        required=True)
+    
+    parser.add_argument('-n', '--number_of_workers', 
+                        help='Number of parallel processing cores.', 
+                        type=int, 
+                        default=1)
+    
+    parser.add_argument('-f', '--freesurfer_path', 
+                        help='Path to freesurfer binaries.', 
+                        default='/home/twiltgen/Tun_software/Freesurfer/FS_7.3.2/freesurfer')
+    
+    parser.add_argument('-c', '--cohort_csv', 
+                        help='Optional path to a csv file with "subID" and "sesID" columns that identifies cases to be processed.', 
+                        default=None)
+    
+    parser.add_argument('--coregister', 
+                        action='store_true')
+    
+    parser.add_argument('--remove_temp', 
+                        action='store_true')
 
     # read the arguments
     args = parser.parse_args()
+
+    # if a cohort csv was provided, build a set of (subID, sesID) tuples to restrict processing to
+    if args.cohort_csv:
+        cohort_df = pd.read_csv(args.cohort_csv, dtype=str)
+        cohort_df['subID'] = cohort_df['subID'].str.replace('^sub-', '', regex=True)
+        cohort_df['sesID'] = cohort_df['sesID'].str.replace('^ses-', '', regex=True)
+        cohort = set(zip(cohort_df['subID'], cohort_df['sesID']))
+    else:
+        cohort = None
 
     if args.remove_temp:
         remove_temp = True
@@ -370,12 +413,19 @@ if __name__ == "__main__":
     dirs = [str(x) for x in dirs]
     dirs = [x for x in dirs if "sub-" in x]
 
+    # if a cohort was provided, restrict the subject folders to only those in the cohort
+    if cohort is not None:
+        cohort_subIDs = {subID for subID, sesID in cohort}
+        dirs = [x for x in dirs if getSubjectID(x) in cohort_subIDs]
+
     # check which files have already been processed
-    dirs_missing, dirs_processed = availability_check(sub_dirs=dirs,
+    dirs_missing, dirs_processed, ses_missing_count = availability_check(sub_dirs=dirs,
                                                       deriv_dir=derivatives_dir,
-                                                      file_suffix='space-T1w_seg.nii.gz')
+                                                      file_suffix='space-T1w_seg.nii.gz',
+                                                      cohort=cohort)
     print(f'Number of incomplete subjects: {len(dirs_missing)}')
     print(f'Number of complete subjects: {len(dirs_processed)}')
+    print(f'Number of sessions to be processed: {ses_missing_count}')
     
     # only split the list of subjects with missing segmentations for multiprocessing 
     # (including subjects of which all images have already been processed would reduce efficiency)
@@ -387,7 +437,7 @@ if __name__ == "__main__":
     pool = multiprocessing.Pool(processes=args.number_of_workers)
     # call samseg processing function in multiprocessing setting
     for x in range(0, args.number_of_workers):
-        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path, x, remove_temp, coregister))
+        pool.apply_async(process_samseg, args=(files[x], derivatives_dir, args.freesurfer_path, x, remove_temp, coregister, cohort))
 
     pool.close()
     pool.join()
