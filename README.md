@@ -7,12 +7,27 @@ Reuired to install the following dependencies:
 
 - Freesurfer v. 7.3.2, c.f.: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
 
-I am using an environment with the packages that are listed in requirements.txt. 
-Since this environment is used for other processing purposes as well, it might contain packages that are not required for the processing pipeline in this repository.
-You can create an environment with the packages by running the following command:
+- Python 3.12 (e.g., installed via pyenv, c.f.: https://github.com/pyenv/pyenv)
+
+The required Python packages are listed in requirements.txt. 
+I recommend to install them in a virtual environment (venv):
+
 ```
-conda create --name <env> --file requirements.txt
+# set the Python version for this folder (only if you use pyenv)
+pyenv local 3.12
+
+# create the virtual environment (replace <env> with a name of your choice, e.g., samseg_cross_env)
+python3 -m venv <env>
+
+# activate the virtual environment
+source <env>/bin/activate
+
+# install the required packages
+pip install -r requirements.txt
 ```
+
+The environment needs to be activated (source <env>/bin/activate) each time before running the scripts. 
+You can deactivate it again with the command: deactivate
 
 
 ### Introduction
@@ -39,7 +54,7 @@ Options:
 2. To aggregate all results into a single csv table for analysis please run the following command:
 
 ```
-python3 xxx/run_analysis.py -i /path/to/bids/database -o /path/to/output/folder
+python3 xxx/collect_volumes.py -i /path/to/bids/database -o /path/to/output/folder
 ```
 
 ### optional
