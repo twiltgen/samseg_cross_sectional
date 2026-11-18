@@ -53,7 +53,7 @@ def combineStats(path, subID, sesID, brain_volumes):
     df["sub-ID"] = subID
     df["ses-ID"]= sesID
     df_IDs=df[["sub-ID", "ses-ID"]]
-    df.drop(labels=["sub-ID", "ses-ID"], axis=1, inplace=True)
+    df = df.drop(columns=["sub-ID", "ses-ID"])
     df.insert(0, "ses-ID", df_IDs["ses-ID"])
     df.insert(0, "sub-ID", df_IDs["sub-ID"])
 
